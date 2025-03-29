@@ -1,0 +1,9 @@
+*test*
+*demo*
+*.jpeg
+*.jpg
+*.png
+*.ipynb
+*.onnx
+*.pt
+*.pth
