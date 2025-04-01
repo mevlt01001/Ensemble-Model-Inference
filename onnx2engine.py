@@ -1,7 +1,8 @@
 """
 trtexec --onnx=YOLO12-RTDETR_ensemble_model.onnx \
         --shapes=image:1x3x640x640 \
-        --fp16 \
-        --saveEngine=YOLO12-RTDETR_ensemble_model.trt"
+        --fp16 \ 
+        --saveEngine=YOLO12-RTDETR_ensemble_model.trt
+        # 1650TI desteklemiyor hatası aldım.
 """
-# komutu ile trt dosyası oluşturuldu.
+# shell ile trt dosyası oluşturuldu.
