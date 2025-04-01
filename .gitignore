@@ -9,3 +9,5 @@
 *.pth
 *.csv
 __pycache__/
+*.trt
+*.engine

@@ -6,7 +6,7 @@ import pandas as pd
 names = get_names()
 lenght = len(names)
 
-sesion = onnxruntime.InferenceSession("YOLO12-RTDETR_ensemble_model.onnx", providers=["CUDAExecutionProvider"])
+sesion = onnxruntime.InferenceSession("YOLO12-RTDETR_ensemble_model.onnx", providers=['TensorrtExecutionProvider'])
 
 pred_boxes = []
 truth_boxes = []
