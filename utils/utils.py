@@ -49,7 +49,13 @@ def get_data(name, imgs=640):
     image = get_image(name, imgs)
     data = np.transpose(image, (2, 0, 1))#hwc2chw
     data = np.expand_dims(data, axis=0).astype(np.float32)/255.0
-    return np.ascontiguousarray(data)
+    return data
+
+def get_data_contiguous(name, imgs=640):
+    image = get_image(name, imgs)
+    data = np.transpose(image, (2, 0, 1))#hwc2chw
+    data = np.expand_dims(data, axis=0).astype(np.float32)/255.0
+    return np.contiguous(data)
 
 def preprocess(image, imgs=640):
     data = np.transpose(image, (2, 0, 1))#hwc2chw
