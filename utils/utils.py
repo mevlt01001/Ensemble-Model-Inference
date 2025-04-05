@@ -94,5 +94,8 @@ def plot_named_image(name, imgs=640):
         cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
     plt.show()
 
+def create_onnx_session(onnx_path: str, providers: list=["CUDAExecutionProvider", "TensorrtExecutionProvider"]):
+    return onnxruntime.InferenceSession(onnx_path, providers=providers)
+
 def onnxruntime_inference(data: np.ndarray, session: onnxruntime.InferenceSession, providers=["CUDAExecutionProvider", "TensorrtExecutionProvider"]):
-    return session.run(None, {"image": data}, providers=providers)[0]
+    return session.run(None, {"image": data})[0]
