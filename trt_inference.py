@@ -11,11 +11,11 @@ pynvml.nvmlInit()
 handle = pynvml.nvmlDeviceGetHandleByIndex(0)
 
 power_log = []
-mem_log = []
+memory_log = []
 timestamp_log = []
 stop_signal = threading.Event()
 
-def measure_gpu_loop(interval=0.1):
+def measure_gpu_loop(interval=0.5):
 
     while not stop_signal.is_set():
         watt = pynvml.nvmlDeviceGetPowerUsage(handle) / 1000
@@ -23,10 +23,10 @@ def measure_gpu_loop(interval=0.1):
         timestamp = time.time()
 
         power_log.append(watt)
-        mem_log.append(mem)
+        memory_log.append(mem)
         timestamp_log.append(timestamp)
 
-        print(f"Power: {watt} W, Memory: {mem} MB, Timestamp: {timestamp-timestamp_log[0]} s")
+        print(f"Power: {watt:.2f} W, Memory: {mem:.2f} MB, Timestamp: {(timestamp-timestamp_log[0]):.2f} s")
         stop_signal.wait(interval)
 
 def inference_all_names(context, bindings, inputs, outputs, stream, names):
@@ -34,8 +34,10 @@ def inference_all_names(context, bindings, inputs, outputs, stream, names):
     preds = []
     truths = []
     inference_latencies = []
+    lenght = len(names)
 
-    for name in names:
+    for i,name in enumerate(names):
+        print(f"{i+1}/{lenght}: {name}")
         input_data = get_data(name)
 
         start = time.process_time()
@@ -49,7 +51,7 @@ def inference_all_names(context, bindings, inputs, outputs, stream, names):
 
 if __name__ == "__main__":
 
-    LOGGER = tensorrt.Logger(tensorrt.Logger.VERBOSE)
+    LOGGER = tensorrt.Logger(tensorrt.Logger.INFO)
     BUILDER = tensorrt.Builder(LOGGER)
     NETWORK = onnx2network(LOGGER, BUILDER, "YOLO12-RTDETR_ensemble_model.onnx", True)
     ENGINE = network2engine(NETWORK, BUILDER, LOGGER, max_workspace_size_gb=3, engine_file_path="YOLO12-RTDETR_ensemble_model.engine")
@@ -61,33 +63,20 @@ if __name__ == "__main__":
     measure_thread = threading.Thread(target=measure_gpu_loop, daemon=True)
     measure_thread.start()
 
-    preds, truths, latencies = inference_all_names(CONTEXT, bindings, inputs, outputs, stream, names[:250])
+    preds, truths, latencies = inference_all_names(CONTEXT, bindings, inputs, outputs, stream, names[0:-1:4])
 
     stop_signal.set()
     measure_thread.join()
-
-    # Sonuçları yazdır (isteğe bağlı)
-    print("Average Inference Latency:", sum(latencies) / len(latencies), "s")
-    print("Average FPS:", 1 / (sum(latencies) / len(latencies)), "fps")
-    print("Average Power Usage:", sum(power_log) / len(power_log), "W")
-    print("Max Memory Usage:", max(mem_log), "MB")
-
     timestamp_log = [_timestamp_log - timestamp_log[0] for _timestamp_log in timestamp_log]
-    # watt plotting
-    plt.plot(timestamp_log, power_log)
-    plt.xlabel("Time (s)")
-    plt.ylabel("GPU Power (W)")
-    plt.show()
-    # mem plotting
-    plt.plot(timestamp_log, mem_log)
-    plt.xlabel("Time (s)")
-    plt.ylabel("GPU Memory (MB)")
-    plt.show()
-    # fps plotting
-    plt.plot(np.arange(len(latencies)), [1 / latency for latency in latencies])
-    plt.xlabel("Time (s)")
-    plt.ylabel("FPS")
-    plt.show()
+
+    np.save("inference_data/preds.npy", preds)
+    np.save("inference_data/truths.npy", truths)
+    np.save("inference_data/latencies.npy", latencies)
+    np.save("inference_data/power_log.npy", power_log)
+    np.save("inference_data/mem_log.npy", memory_log)
+    np.save("inference_data/timestamp_log.npy", timestamp_log)
+
+
 
     
 
