@@ -12,3 +12,4 @@ __pycache__/
 *.trt
 *.engine
 *questions*
+inference_data/
