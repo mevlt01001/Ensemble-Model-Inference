@@ -1,4 +1,4 @@
-from utils import get_names, get_boxes, get_image, get_data, plot_image, preprocess
+from utils import get_names, get_boxes, get_data
 import onnxruntime
 import numpy as np
 import pandas as pd
@@ -6,7 +6,7 @@ import pandas as pd
 names = get_names()
 lenght = len(names)
 
-sesion = onnxruntime.InferenceSession("YOLO12-RTDETR_ensemble_model.onnx", providers=['TensorrtExecutionProvider'])
+sesion = onnxruntime.InferenceSession("YOLO12-RTDETR_ensemble_model.onnx", providers=['CUDAExecutionProvider'])
 
 pred_boxes = []
 truth_boxes = []

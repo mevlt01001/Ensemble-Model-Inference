@@ -2,6 +2,7 @@ import numpy as np
 import os
 import cv2
 import matplotlib.pyplot as plt
+import onnxruntime
 
 images_paht = "test-image-folder/images"
 labels_path = "test-image-folder/labels"
@@ -93,3 +94,5 @@ def plot_named_image(name, imgs=640):
         cv2.rectangle(image, (x1, y1), (x2, y2), (0, 255, 0), 2)
     plt.show()
 
+def onnxruntime_inference(data: np.ndarray, session: onnxruntime.InferenceSession, providers=["CUDAExecutionProvider", "TensorrtExecutionProvider"]):
+    return session.run(None, {"image": data}, providers=providers)[0]
