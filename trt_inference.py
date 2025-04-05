@@ -8,7 +8,7 @@ from utils import get_data_contiguous
 logger = trt.Logger(trt.Logger.WARNING)
 
 # TensorRT engine yükle
-with open('YOLO12-RTDETR_ensemble_model.trt', 'rb') as f:
+with open('demo.engine', 'rb') as f:
     runtime = trt.Runtime(logger)
     engine = runtime.deserialize_cuda_engine(f.read())
 
@@ -18,7 +18,7 @@ context = engine.create_execution_context()
 # Input ve output buffer hazırlıkları
 input_shape = (1, 3, 640, 640)
 input_data = np.random.random(input_shape).astype(np.float32)
-input_data = get_data_contiguous("273271-1b86f000bc5b77bf_jpg.rf.83c36538b0d981f8786884c725a25f1f")
+#input_data = get_data_contiguous("273271-1b86f000bc5b77bf_jpg.rf.83c36538b0d981f8786884c725a25f1f")
 
 
 # GPU bellek ayır

@@ -55,7 +55,7 @@ def get_data_contiguous(name, imgs=640):
     image = get_image(name, imgs)
     data = np.transpose(image, (2, 0, 1))#hwc2chw
     data = np.expand_dims(data, axis=0).astype(np.float32)/255.0
-    return np.contiguous(data)
+    return (data)
 
 def preprocess(image, imgs=640):
     data = np.transpose(image, (2, 0, 1))#hwc2chw
@@ -75,7 +75,7 @@ def get_all_data(imgs=640):
 def plot_image(image, boxes):
     image = image.copy()
     for box in boxes:
-        x1, y1, x2, y2 = box
+        x1, y1, x2, y2, *_ = box
         x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
         cv2.rectangle(image, (x1, y1), (x2, y2), (255, 0, 0), 2)
 

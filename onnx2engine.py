@@ -11,7 +11,10 @@
 
 import tensorrt
 import os
-from utils import get_names, get_data_contiguous
+import numpy as np
+import pycuda.driver as cuda
+#import pycuda.autoinit
+from utils import get_names, get_data_contiguous, plot_image, get_image
 
 onnx_path = "YOLO12-RTDETR_ensemble_model.onnx"  # ONNX dosyanın adı
 
@@ -87,7 +90,7 @@ def network2engine(network: tensorrt.INetworkDefinition,
     if engine_file_path is not None:
         with open(engine_file_path, "wb") as f:
             f.write(engine)
-        print(f"💾 Engine diske kaydedildi: {engine_file_path}")
+        print(f"Engine diske kaydedildi: {engine_file_path}")
         
     return engine
 
@@ -99,18 +102,122 @@ def load_engine(engine_path: str, logger: tensorrt.ILogger) -> tensorrt.ICudaEng
     engine = runtime.deserialize_cuda_engine(engine_data)
 
     if engine is None:
-        raise RuntimeError("❌ Engine deserialization failed!")
+        raise RuntimeError("Engine deserialization failed!")
 
-    print("✅ Engine başarıyla deserialize edildi.")
+    print("Engine başarıyla deserialize edildi.")
     return engine
+
+def __iter_engine(engine: tensorrt.ICudaEngine):
+
+    for binding in engine:
+        print(f"binding: {binding}")
+        #print(f"{idx}: {name}({'input' if engine.binding_is_input(idx) else 'output'})")
+
+def __get_engine_input_output_names_and_shapes(engine: tensorrt.ICudaEngine):
+
+    for binding in range(engine.num_io_tensors):
+        tensor_name = engine.get_tensor_name(binding)
+        print(f"Tensor: {tensor_name}({engine.get_tensor_shape(tensor_name)})")
+
+class HostDeviceMem:
+    def __init__(self, host, device):
+        self.host = host          # CPU (host) tarafındaki NumPy array
+        self.device = device      # GPU (device) tarafındaki bellek adresi (pycuda.DeviceAllocation)
+
+    def __str__(self):
+        return f"Host:\t{self.host}\nDevice:\t{self.device}"
+
+def allocate_input_output_buffers(engine: tensorrt.ICudaEngine) -> tuple[list[HostDeviceMem], list[HostDeviceMem], list[int], cuda.Stream]:
+
+    inputs = []
+    outputs = []
+    bindings = []
+    stream = cuda.Stream()
+
+    for i in range(engine.num_io_tensors):
+        tensor_name = engine.get_tensor_name(i)
+        tensor_shape = engine.get_tensor_shape(tensor_name)
+        print(f"Tensor: {tensor_name}({tensor_shape}) Dtype: {engine.get_tensor_dtype(tensor_name)}")
+        size = tensorrt.volume(engine.get_tensor_shape(tensor_name)) if tensor_shape[0] != -1 else tensorrt.volume((15,5))
+        dtype = tensorrt.nptype(engine.get_tensor_dtype(tensor_name))        
+
+        # Allocate host and device buffers
+        host_mem = cuda.pagelocked_empty(size, dtype) # page-locked memory buffer (won't swap to disk)
+        device_mem = cuda.mem_alloc(host_mem.nbytes)
+
+        # Append the device buffer address to device bindings.
+        # When cast to int, it's a linear index into the context's memory (like memory address).
+        bindings.append(int(device_mem))
+
+        # Append to the appropriate input/output list.
+        if engine.get_tensor_mode(tensor_name) == tensorrt.TensorIOMode.INPUT:
+            inputs.append(HostDeviceMem(host_mem, device_mem))
+        else:
+            outputs.append(HostDeviceMem(host_mem, device_mem))
+
+    return inputs, outputs, bindings, stream
+
+def run_inference(context, bindings, inputs, outputs, stream, input_data: np.array):
+    # 1. Input verisini host belleğe yaz
+    np.copyto(inputs[0].host, input_data.ravel())
+
+    # 2. CPU → GPU kopyası
+    cuda.memcpy_htod_async(inputs[0].device, inputs[0].host, stream)
+
+    # 3. Inference
+    context.execute_v2(bindings)
+
+    # 4. GPU → CPU kopyası
+    cuda.memcpy_dtoh_async(outputs[0].host, outputs[0].device, stream)
+
+    # 5. Tüm işlemler bitsin
+    stream.synchronize()
+
+    # 6. Output’u döndür
+    return outputs[0].host.reshape(outputs[0].host.shape)
 
 
 # network = onnx2network(LOGGER, BUILDER, onnx_path, explicit_batch=True)
 # engine = network2engine(network, BUILDER, max_workspace_size_gb=2, engine_file_path="demo.engine")
-cuda_engine = load_engine("demo.engine", LOGGER)
-context = cuda_engine.create_execution_context()
+# cuda_engine = load_engine("demo.engine", LOGGER)
+#print(cuda_engine.get_tensor_dtype(cuda_engine.get_tensor_name(0)))
+#context = cuda_engine.create_execution_context()
+#inputs, outputs, bindings, stream = allocate_input_output_buffers(cuda_engine)
+# names = get_names()
+# input_data = get_data_contiguous(name=names[0], imgs=640)
+# input_data = np.random.random((1,3,640,640)).astype(np.float32)
+#output = run_inference(context, bindings, inputs, outputs, stream, input_data)
 
 
 
 
 
+if __name__ == "__main__":
+    import time
+    import pycuda.autoinit
+    cuda_engine = load_engine("demo.engine", LOGGER)
+    print(cuda_engine.get_tensor_dtype(cuda_engine.get_tensor_name(0)))
+    context = cuda_engine.create_execution_context()
+    context.set_input_shape(cuda_engine.get_tensor_name(0), (1, 3, 640, 640))
+    
+    inputs, outputs, bindings, stream = allocate_input_output_buffers(cuda_engine)
+
+    names = get_names()
+    latencies = []
+
+    for i,name in enumerate(names):
+        print(f"{i}")
+        if i == 120:
+            break
+        input_data = get_data_contiguous(name=name, imgs=640)
+        start = time.time()
+        output = run_inference(context, bindings, inputs, outputs, stream, input_data).reshape(-1, 5)
+        latencies.append(time.time() - start)
+
+
+    print(f"fps: {1/np.mean(latencies)}")
+    # input_data = get_data_contiguous(name=names[0], imgs=640)
+
+    # output = run_inference(context, bindings, inputs, outputs, stream, input_data).reshape(-1, 5)
+    # print(output)
+    # plot_image(get_image(names[0], 640), output)
