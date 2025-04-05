@@ -36,15 +36,19 @@ def onnx2network(logger: tensorrt.ILogger,
 
 def network2engine(network: tensorrt.INetworkDefinition,
                    builder: tensorrt.Builder,
+                   logger: tensorrt.ILogger,
                    max_workspace_size_bytes: int = None,
                    max_workspace_size_kb: int = None,
                    max_workspace_size_mb: int = None,
                    max_workspace_size_gb: int = None,
                    engine_file_path: str = None):
+    
     sizes = [max_workspace_size_bytes, max_workspace_size_kb, max_workspace_size_mb, max_workspace_size_gb]
-    assert len([item for item in sizes if item is not None]) == 1,\
-        "Please provide only one of the following arguments: max_workspace_size_bytes, max_workspace_size_kb, max_workspace_size_mb, max_workspacae_size_gb"
+    assert len([item for item in sizes if item is not None]) == 1, "Please provide only one of the following arguments: max_workspace_size_bytes, max_workspace_size_kb, max_workspace_size_mb, max_workspacae_size_gb"
 
+    if os.path.exists(engine_file_path):
+        return load_engine(engine_file_path, logger)
+    
     def get_max_workspace_size():
         sizes = [max_workspace_size_bytes, max_workspace_size_kb, max_workspace_size_mb, max_workspace_size_gb]
 
@@ -83,7 +87,7 @@ def network2engine(network: tensorrt.INetworkDefinition,
             f.write(engine)
         print(f"Engine diske kaydedildi: {engine_file_path}")
         
-    return engine
+    return load_engine(engine_file_path, builder.get_logger())
 
 def load_engine(engine_path: str, logger: tensorrt.ILogger) -> tensorrt.ICudaEngine:
     with open(engine_path, "rb") as f:
