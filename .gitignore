@@ -13,3 +13,5 @@ __pycache__/
 *.engine
 *questions*
 inference_data/
+EngineFolder/
+OnnxFolder/
