@@ -58,6 +58,10 @@ if __name__ == "__main__":
 
     for name in onnx_names:
 
+        power_log.clear()
+        memory_log.clear()
+        timestamp_log.clear()
+
         onnx_path = os.path.join("OnnxFolder", name+".onnx")
         engine_path = os.path.join("EngineFolder", name+".engine")
 
@@ -70,7 +74,7 @@ if __name__ == "__main__":
 
         names = get_names()
 
-        preds, truths, latencies = inference_all_names(CONTEXT, bindings, inputs, outputs, stream, names[0:-1:8])
+        preds, truths, latencies = inference_all_names(CONTEXT, bindings, inputs, outputs, stream, names[0:-1:100])
         timestamp_log = [_timestamp_log - timestamp_log[0] for _timestamp_log in timestamp_log]
         
         os.makedirs(f"inference_data/{name}", exist_ok=True)
@@ -84,3 +88,4 @@ if __name__ == "__main__":
 
     stop_signal.set()
     measure_thread.join()
+    
