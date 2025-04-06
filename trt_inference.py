@@ -3,6 +3,7 @@ import pynvml
 import tensorrt
 import threading
 import numpy as np
+import pycuda.driver as cuda
 import matplotlib.pyplot as plt
 from utils import *
 
@@ -53,6 +54,19 @@ if __name__ == "__main__":
 
     onnx_names = [name.rstrip(".onnx") for name in os.listdir("OnnxFolder")]
 
+    for name in onnx_names:
+
+        onnx_path = os.path.join("OnnxFolder", name+".onnx")
+        engine_path = os.path.join("EngineFolder", name+".engine")
+        
+        LOGGER = tensorrt.Logger(tensorrt.Logger.VERBOSE)
+        BUILDER = tensorrt.Builder(LOGGER)
+        NETWORK = onnx2network(LOGGER, BUILDER, onnx_path, True)
+        ENGINE = network2engine(NETWORK, BUILDER, LOGGER, max_workspace_size_gb=3, engine_file_path=engine_path)
+
+        del NETWORK
+        del ENGINE
+
     measure_thread = threading.Thread(target=measure_gpu_loop, daemon=True)
     measure_thread.start()
 
@@ -74,7 +88,7 @@ if __name__ == "__main__":
 
         names = get_names()
 
-        preds, truths, latencies = inference_all_names(CONTEXT, bindings, inputs, outputs, stream, names[0:-1:100])
+        preds, truths, latencies = inference_all_names(CONTEXT, bindings, inputs, outputs, stream, names[0:-1:8])
         timestamp_log = [_timestamp_log - timestamp_log[0] for _timestamp_log in timestamp_log]
         
         os.makedirs(f"inference_data/{name}", exist_ok=True)
@@ -87,5 +101,4 @@ if __name__ == "__main__":
         
 
     stop_signal.set()
-    measure_thread.join()
-    
+    measure_thread.join()    
