@@ -51,33 +51,36 @@ def inference_all_names(context, bindings, inputs, outputs, stream, names):
 
 if __name__ == "__main__":
 
-    LOGGER = tensorrt.Logger(tensorrt.Logger.INFO)
-    BUILDER = tensorrt.Builder(LOGGER)
-    NETWORK = onnx2network(LOGGER, BUILDER, "YOLO12-RTDETR_ensemble_model.onnx", True)
-    ENGINE = network2engine(NETWORK, BUILDER, LOGGER, max_workspace_size_gb=3, engine_file_path="YOLO12-RTDETR_ensemble_model.engine")
-    CONTEXT = ENGINE.create_execution_context()
-    inputs, outputs, bindings, stream = allocate_input_output_buffers(ENGINE)
-
-    names = get_names()
+    onnx_names = [name.rstrip(".onnx") for name in os.listdir("OnnxFolder")]
 
     measure_thread = threading.Thread(target=measure_gpu_loop, daemon=True)
     measure_thread.start()
 
-    preds, truths, latencies = inference_all_names(CONTEXT, bindings, inputs, outputs, stream, names[0:-1:4])
+    for name in onnx_names:
+
+        onnx_path = os.path.join("OnnxFolder", name+".onnx")
+        engine_path = os.path.join("EngineFolder", name+".engine")
+
+        LOGGER = tensorrt.Logger(tensorrt.Logger.INFO)
+        BUILDER = tensorrt.Builder(LOGGER)
+        NETWORK = onnx2network(LOGGER, BUILDER, onnx_path, True)
+        ENGINE = network2engine(NETWORK, BUILDER, LOGGER, max_workspace_size_gb=3, engine_file_path=engine_path)
+        CONTEXT = ENGINE.create_execution_context()
+        inputs, outputs, bindings, stream = allocate_input_output_buffers(ENGINE)
+
+        names = get_names()
+
+        preds, truths, latencies = inference_all_names(CONTEXT, bindings, inputs, outputs, stream, names[0:-1:8])
+        timestamp_log = [_timestamp_log - timestamp_log[0] for _timestamp_log in timestamp_log]
+        
+        os.makedirs(f"inference_data/{name}", exist_ok=True)
+        np.save(f"inference_data/{name}/preds.npy", preds)
+        np.save(f"inference_data/{name}/truths.npy", truths)
+        np.save(f"inference_data/{name}/latencies.npy", latencies)
+        np.save(f"inference_data/{name}/power_log.npy", power_log)
+        np.save(f"inference_data/{name}/mem_log.npy", memory_log)
+        np.save(f"inference_data/{name}/timestamp_log.npy", timestamp_log)
+        
 
     stop_signal.set()
     measure_thread.join()
-    timestamp_log = [_timestamp_log - timestamp_log[0] for _timestamp_log in timestamp_log]
-
-    np.save("inference_data/preds.npy", preds)
-    np.save("inference_data/truths.npy", truths)
-    np.save("inference_data/latencies.npy", latencies)
-    np.save("inference_data/power_log.npy", power_log)
-    np.save("inference_data/mem_log.npy", memory_log)
-    np.save("inference_data/timestamp_log.npy", timestamp_log)
-
-
-
-    
-
-    

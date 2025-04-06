@@ -87,7 +87,7 @@ def network2engine(network: tensorrt.INetworkDefinition,
             f.write(engine)
         print(f"Engine diske kaydedildi: {engine_file_path}")
         
-    return load_engine(engine_file_path, builder.get_logger())
+    return load_engine(engine_file_path, logger)
 
 def load_engine(engine_path: str, logger: tensorrt.ILogger) -> tensorrt.ICudaEngine:
     with open(engine_path, "rb") as f:
@@ -116,7 +116,7 @@ def allocate_input_output_buffers(engine: tensorrt.ICudaEngine) -> tuple[list[Ho
         tensor_name = engine.get_tensor_name(i)
         tensor_shape = engine.get_tensor_shape(tensor_name)
         print(f"Tensor: {tensor_name}({tensor_shape}) Dtype: {engine.get_tensor_dtype(tensor_name)}")
-        size = tensorrt.volume(engine.get_tensor_shape(tensor_name)) if tensor_shape[0] != -1 else tensorrt.volume((15,5))
+        size = tensorrt.volume(engine.get_tensor_shape(tensor_name)) if tensor_shape[0] != -1 else tensorrt.volume((100,5))
         dtype = tensorrt.nptype(engine.get_tensor_dtype(tensor_name))        
 
         host_mem = cuda.pagelocked_empty(size, dtype)
@@ -138,7 +138,7 @@ def run_inference(context, bindings, inputs, outputs, stream, input_data: np.arr
     context.execute_v2(bindings)    
     cuda.memcpy_dtoh_async(outputs[0].host, outputs[0].device, stream)
     stream.synchronize()    
-    return outputs[0].host.reshape(-1,5)
+    return np.trim_zeros(outputs[0].host, 'b').reshape(-1,5)
 
 def __iter_engine(engine: tensorrt.ICudaEngine):
 

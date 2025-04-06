@@ -46,10 +46,10 @@ def get_image(name, imgs=640):
 def get_all_images(imgs=640):
     return np.array([get_image(name, imgs) for name in names])
 
-def get_data(name, imgs=640):
+def get_data(name, imgs=640, dtype=np.float16):
     image = get_image(name, imgs)
     data = np.transpose(image, (2, 0, 1))#hwc2chw
-    data = np.expand_dims(data, axis=0).astype(np.float32)/255.0
+    data = np.expand_dims(data, axis=0).astype(dtype)/255.0
     return data
 
 def get_data_contiguous(name, imgs=640):
